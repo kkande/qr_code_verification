@@ -1,9 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
 
 import 'models/qr_verification.dart';
+import 'models/scan_response.dart';
 
 class ScanningUI extends StatefulWidget {
   @override
@@ -168,6 +170,75 @@ class _ScanningUIState extends State<ScanningUI> {
                 },
                 child: Text('Process Valid QR'),
               ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showResultDialog(ScanResponse response) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(response.success ? 'Ticket Valid' : 'Ticket Invalid'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('UUID: ${response.uuid}'),
+              SizedBox(height: 8),
+              Text('Status: ${response.success ? 'Valid ✅' : 'Invalid ❌'}'),
+              SizedBox(height: 8),
+              Text('Message: ${response.message}'),
+              SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.confirmation_number,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Tickets scannés: ${response.ticketCount}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                // Copier l'UUID dans le presse-papiers
+                Clipboard.setData(ClipboardData(text: response.uuid));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('UUID copié dans le presse-papiers')),
+                );
+              },
+              child: Text('Copier UUID'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                controller?.resumeCamera();
+                setState(() {
+                  isScanned = false;
+                });
+              },
+              child: Text('Scanner suivant'),
+            ),
           ],
         );
       },
