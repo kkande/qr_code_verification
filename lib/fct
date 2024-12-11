@@ -1,0 +1,173 @@
+Je comprends que vous voulez gérer un compteur de tickets scannés. Voici comment nous pourrions modifier le code pour gérer cela :
+
+class ScanResponse {
+  final bool success;
+  final String message;
+  final int remainingTickets;
+  final int totalTickets;
+
+  ScanResponse({
+    required this.success,
+    required this.message,
+    required this.remainingTickets,
+    required this.totalTickets,
+  });
+
+  factory ScanResponse.fromJson(Map<String, dynamic> json) {
+    return ScanResponse(
+      success: json['success'] ?? false,
+      message: json['message'] ?? '',
+      remainingTickets: json['remainingTickets'] ?? 0,
+      totalTickets: json['totalTickets'] ?? 0,
+    );
+  }
+
+  String get ticketCount => '$remainingTickets/$totalTickets';
+}
+
+D'abord, créons une classe pour gérer la réponse du serveur :
+
+Modifions la méthode _handleScannedData dans scanning_ui.dart :
+
+
+void _handleScannedData(Barcode data) {
+  controller?.pauseCamera();
+
+  // Vérification du format QR
+  final verification = QrVerification.fromUrl(data.code ?? '');
+
+  if (!verification.success) {
+    _showErrorDialog('Invalid QR Code Format');
+    return;
+  }
+
+  // Simulation d'une requête serveur
+  _verifyTicketWithServer(verification.scannedUrl!);
+}
+
+Future<void> _verifyTicketWithServer(String qrUrl) async {
+  try {
+    // Simuler un appel API
+    // À remplacer par votre véritable appel API
+    final response = await http.post(
+      Uri.parse('YOUR_API_ENDPOINT'),
+      body: {'qrCode': qrUrl},
+    );
+
+    if (response.statusCode == 200) {
+      final scanResponse = ScanResponse.fromJson(
+        jsonDecode(response.body),
+      );
+
+      _showResultDialog(scanResponse);
+    } else {
+      _showErrorDialog('Server Error');
+    }
+  } catch (e) {
+    _showErrorDialog('Network Error');
+  }
+}
+
+void _showResultDialog(ScanResponse response) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text(response.success ? 'Ticket Valid' : 'Ticket Invalid'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Status: ${response.success ? 'Valid ✅' : 'Invalid ❌'}'),
+            SizedBox(height: 8),
+            Text('Message: ${response.message}'),
+            SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.confirmation_number,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Tickets scannés: ${response.ticketCount}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              controller?.resumeCamera();
+              setState(() {
+                isScanned = false;
+              });
+            },
+            child: Text('Scanner suivant'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+void _showErrorDialog(String message) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Erreur'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              controller?.resumeCamera();
+              setState(() {
+                isScanned = false;
+              });
+            },
+            child: Text('Réessayer'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+
+3. N'oubliez pas d'ajouter les dépendances nécessaires :
+Cette implémentation :
+1. Vérifie d'abord le format du QR code
+Si le format est valide, envoie une requête au serveur
+Affiche le résultat avec :
+Le statut de validation
+Un message
+Le compteur de tickets (ex: "299/300")
+Une option pour scanner le ticket suivant
+Pour implémenter cela côté serveur, vous aurez besoin de :
+Un endpoint qui accepte le code QR
+Une base de données qui stocke :
+Le nombre total de tickets
+Les tickets déjà scannés
+L'état de chaque ticket
+Le serveur devrait renvoyer une réponse JSON du type :
+Vous pouvez personnaliser davantage l'interface utilisateur en :
+Ajoutant une barre de progression
+Changeant les couleurs selon le nombre de tickets restants
+Ajoutant des animations
+Ajoutant des sons de confirmation/erreur
