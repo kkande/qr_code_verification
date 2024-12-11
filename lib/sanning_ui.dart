@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:uuid/uuid.dart';
 
 import 'models/qr_verification.dart';
 import 'models/scan_response.dart';
+
+import 'package:http/http.dart' as http;
 
 class ScanningUI extends StatefulWidget {
   @override
@@ -17,6 +20,16 @@ class _ScanningUIState extends State<ScanningUI> {
   QRViewController? controller;
   Barcode? result;
   bool isScanned = false;
+
+  String uuid = Uuid().v4();
+
+  void _generateNewUuid() {
+    setState(() {
+      uuid = Uuid().v4(); // Generate a new random UUID
+      print('uuid -----:' +uuid);
+    });
+  }
+
 
   @override
   void reassemble() {
@@ -33,7 +46,7 @@ class _ScanningUIState extends State<ScanningUI> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFCAC4D0),
+      backgroundColor: const Color(0xFFCAC4D0),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
@@ -132,16 +145,150 @@ class _ScanningUIState extends State<ScanningUI> {
     // Ajout des prints pour le debug
     print('Format du code scanné: ${data.format}');
     print('Contenu du code scanné: ${data.code}');
+    print('Status: ${verification.success ? 'Valid ✅' : 'Invalid ❌'}');
+    print('Message: ${verification.message}');
+
+/*    if(verification.success) {
+    //  _sendToServer(data.code ?? '');
+    }
+    else{
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text(verification.success ? 'Valid QR Code' : 'Invalid QR Code'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Format: ${data.format}'),
+                SizedBox(height: 8),
+                Text('Content: ${data.code}'),
+                SizedBox(height: 8),
+                Text('Status: ${verification.success ? 'Valid ✅' : 'Invalid ❌'}'),
+                SizedBox(height: 8),
+                Text('Message: ${verification.message}'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  controller?.resumeCamera();
+                  setState(() {
+                    isScanned = false;
+                  });
+                },
+                child: Text('Scan Again'),
+              ),
+              if (verification.success)
+                TextButton(
+                  onPressed: () {
+                    _generateNewUuid();
+                    Navigator.of(context).pop();
+                    // Ajoutez ici la logique pour traiter un code QR valide
+                  },
+                  child: Text('Process Valid QR'),
+                ),
+            ],
+          );
+        },
+      );
+    }*/
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(verification.success ? 'Valid QR Code' : 'Invalid QR Code'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: Color(0xFFE7F9F1),
+          title: Column(
+            children: [
+              Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 50,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Ticket Valide !',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Container(
+            decoration: BoxDecoration(
+              color: Colors.green,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            padding: EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildInfoRow(
+                  'Date d\'achat de ticket',
+                  '15/05/2024',
+                  Icons.calendar_today,
+                ),
+                Divider(color: Colors.white30),
+                _buildInfoRow(
+                  'Ticket No',
+                  '0000334404',
+                  Icons.confirmation_number,
+                ),
+                Divider(color: Colors.white30),
+                _buildInfoRow(
+                  'Section',
+                  'Zone A',
+                  Icons.location_on,
+                ),
+                Divider(color: Colors.white30),
+                _buildInfoRow(
+                  'Utilisateur',
+                  'Moussa Diop',
+                  Icons.person,
+                ),
+                Divider(color: Colors.white30),
+                _buildInfoRow(
+                  'Ticket restaurant',
+                  'OUI',
+                  Icons.restaurant,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            Center(
+              child: TextButton(
+                onPressed: () {
+                  _generateNewUuid();
+                  Navigator.of(context).pop();
+                  controller?.resumeCamera();
+                  setState(() {
+                    isScanned = false;
+                  });
+                },
+                child: Text(
+                  'Scanner suivant',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        /*  title: Text(verification.success ? 'Valid QR Code' : 'Invalid QR Code'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+
               Text('Format: ${data.format}'),
               SizedBox(height: 8),
               Text('Content: ${data.code}'),
@@ -165,18 +312,19 @@ class _ScanningUIState extends State<ScanningUI> {
             if (verification.success)
               TextButton(
                 onPressed: () {
+                  _generateNewUuid();
                   Navigator.of(context).pop();
                   // Ajoutez ici la logique pour traiter un code QR valide
                 },
                 child: Text('Process Valid QR'),
               ),
-          ],
+          ],*/
         );
       },
     );
   }
 
-  void _showResultDialog(ScanResponse response) {
+/*  void _showResultDialog(ScanResponse response) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -245,6 +393,63 @@ class _ScanningUIState extends State<ScanningUI> {
     );
   }
 
+  Future<void> _sendToServer(String qrCode) async {
+    try {
+      final response = await http.post(
+        Uri.parse(''),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'qrCode': qrCode,
+          // Ajoutez d'autres données si nécessaire
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Conversion de la réponse en objet ScanResponse
+        final scanResponse = ScanResponse.fromJson(
+          jsonDecode(response.body),
+        );
+
+        // Affichage du dialogue avec les informations du serveur
+        _showResultDialog(scanResponse);
+      } else {
+        // Gestion des erreurs serveur
+        _showErrorDialog('Erreur serveur: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Gestion des erreurs réseau
+      _showErrorDialog('Erreur réseau: $e');
+    }
+  }
+
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Erreur'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                controller?.resumeCamera();
+                setState(() {
+                  isScanned = false;
+                });
+              },
+              child: Text('Réessayer'),
+            ),
+          ],
+        );
+      },
+    );
+  }*/
+
+
 
 /*
   void _handleScannedData(Barcode data) {
@@ -293,3 +498,36 @@ class _ScanningUIState extends State<ScanningUI> {
   }
 */
 }
+
+Widget _buildInfoRow(String label, String value, IconData icon) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8.0),
+    child: Row(
+      children: [
+        Icon(
+          icon,
+          color: Colors.white,
+          size: 20,
+        ),
+        SizedBox(width: 10),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+          ),
+        ),
+        Spacer(),
+        Text(
+          value,
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+

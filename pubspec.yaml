@@ -39,6 +39,8 @@ dependencies:
   qr_flutter: any
   qr_code_scanner: any
   uuid:
+  http: any
+
 
 dev_dependencies:
   flutter_test:
